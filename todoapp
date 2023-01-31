@@ -1,0 +1,92 @@
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json; class Task
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public bool Completed { get; set; }
+} class Project
+{
+    public string Name { get; set; }
+    public List<int> TaskIds { get; set; }
+} class TodoApp
+{
+    private List<Task> Tasks { get; set; }
+    private Dictionary<string, Project> Projects { get; set; }     public TodoApp()
+    {
+        Tasks = new List<Task>();
+        Projects = new Dictionary<string, Project>();
+    }     public void LoadData()
+    {
+        try
+        {
+            string json = System.IO.File.ReadAllText("tasks.json");
+            dynamic data = JsonConvert.DeserializeObject(json);
+            Tasks = JsonConvert.DeserializeObject<List<Task>>(data.tasks.ToString());
+            Projects = JsonConvert.DeserializeObject<Dictionary<string, Project>>(data.projects.ToString());
+        }
+        catch (Exception)
+        {
+            Tasks = new List<Task>();
+            Projects = new Dictionary<string, Project>();
+        }
+    }     public void SaveData()
+    {
+        dynamic data = new
+        {
+            tasks = Tasks,
+            projects = Projects
+        };
+        string json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        System.IO.File.WriteAllText("tasks.json", json);
+    }     public void AddTask(string taskName, string projectName = null)
+    {
+        Task task = new Task
+        {
+            Id = Tasks.Count,
+            Name = taskName,
+            Completed = false
+        };
+        Tasks.Add(task);
+        if (projectName != null)
+        {
+            if (!Projects.ContainsKey(projectName))
+            {
+                Projects[projectName] = new Project
+                {
+                    Name = projectName,
+                    TaskIds = new List<int>()
+                };
+            }
+            Projects[projectName].TaskIds.Add(task.Id);
+        }
+        SaveData();
+    }     public void MarkTaskComplete(int taskId)
+    {
+        Task task = Tasks.Find(t => t.Id == taskId);
+        task.Completed = true;
+        SaveData();
+    }     public void ListTasks(string projectName = null, bool showCompleted = true)
+    {
+        List<Task> tasks = Tasks;
+        if (projectName != null)
+        {
+            if (Projects.ContainsKey(projectName))
+            {
+                tasks = Tasks.FindAll(t => Projects[projectName].TaskIds.Contains(t.Id));
+            }
+            else
+            {
+                Console.WriteLine("Project not found");
+                return;
+            }
+        }
+        if (!showCompleted) {
+            tasks = tasks.FindAll(t => !t.Completed);
+        }
+        foreach (Task task in tasks)
+        {
+            Console.WriteLine("[{0}] {1} ({2})", task.Id, task.Name, task.Completed ? "Completed" : "Pending");
+        }
+    }
+}
