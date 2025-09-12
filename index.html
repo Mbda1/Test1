@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MindMapp</title>
+<style>
+body { font-family: sans-serif; margin: 20px; }
+#mindmap ul { list-style-type: none; padding-left: 20px; }
+li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>MindMapp</h1>
+<div>
+  <input id="nodeText" placeholder="New node text" />
+  <select id="parentSelect"></select>
+  <button id="addBtn">Add Node</button>
+  <button id="exportBtn">Export JSON</button>
+</div>
+<pre id="jsonOutput" style="background:#f0f0f0; padding:10px; white-space:pre-wrap;"></pre>
+<div id="mindmap"></div>
+<script>
+const STORAGE_KEY = 'mindmapp-data';
+let nodes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [{id:0,parent:null,text:'Root'}];
+let nextId = nodes.reduce((m,n)=>Math.max(m,n.id),0)+1;
+
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
+}
+
+function render(){
+  const container = document.getElementById('mindmap');
+  container.innerHTML = '';
+  function build(parentId){
+    const ul = document.createElement('ul');
+    nodes.filter(n=>n.parent===parentId).forEach(n=>{
+      const li = document.createElement('li');
+      li.textContent = n.text;
+      li.appendChild(build(n.id));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  container.appendChild(build(null));
+  const select = document.getElementById('parentSelect');
+  select.innerHTML = '';
+  nodes.forEach(n=>{
+    const option = document.createElement('option');
+    option.value = n.id;
+    option.textContent = n.text;
+    select.appendChild(option);
+  });
+  document.getElementById('jsonOutput').textContent = JSON.stringify(nodes, null, 2);
+}
+
+document.getElementById('addBtn').onclick = () => {
+  const text = document.getElementById('nodeText').value.trim();
+  if (!text) return;
+  const parent = parseInt(document.getElementById('parentSelect').value,10);
+  nodes.push({id:nextId++, parent:parent, text:text});
+  save();
+  document.getElementById('nodeText').value = '';
+  render();
+};
+
+document.getElementById('exportBtn').onclick = () => {
+  const data = JSON.stringify(nodes, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mindmap.json';
+  a.click();
+};
+
+render();
+</script>
+</body>
+</html>
