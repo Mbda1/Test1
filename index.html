@@ -410,7 +410,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Icons.BrainDump /> Brain Dump</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                            <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">{parsedItems ? 'Discard' : 'Cancel'}</button>
                         </div>
 
                         {!parsedItems ? (
@@ -527,7 +527,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">Clarify {aiSuggestion && <span className="text-xs bg-purple-100 text-purple-700 px-2 rounded-full">AI: {aiSuggestion}</span>}</h3>
                             <div className="flex items-center gap-2">
                                 <button onClick={handleAIClarify} disabled={isAnalyzing} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-md ai-gradient hover:opacity-90 disabled:opacity-50">{isAnalyzing ? '...' : <><Icons.Sparkles /> Smart Clarify</>}</button>
-                                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 ml-2">&times;</button>
+                                <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"><Icons.Check /> Done</button>
                             </div>
                         </div>
                         <div className="p-6 overflow-y-auto">
