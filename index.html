@@ -331,6 +331,118 @@
             );
         };
 
+        const CalendarView = ({ tasks, onCheck, onClick }) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const tasksWithDates = tasks.filter(t => t.dueDate && t.status !== 'done' && t.status !== 'trash');
+
+            const categorize = (task) => {
+                const dueDate = new Date(task.dueDate + 'T00:00:00');
+                const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                if (diffDays < 0) return 'overdue';
+                if (diffDays === 0) return 'today';
+                if (diffDays === 1) return 'tomorrow';
+                if (diffDays <= 7) return 'thisWeek';
+                return 'later';
+            };
+
+            const grouped = { overdue: [], today: [], tomorrow: [], thisWeek: [], later: [] };
+            tasksWithDates.forEach(task => { grouped[categorize(task)].push(task); });
+
+            // Sort each group by date
+            const sortByDate = (a, b) => new Date(a.dueDate) - new Date(b.dueDate);
+            Object.keys(grouped).forEach(key => grouped[key].sort(sortByDate));
+
+            const Section = ({ title, tasks, color, bgColor, icon }) => {
+                if (tasks.length === 0) return null;
+                return (
+                    <div className="mb-6">
+                        <div className={`flex items-center gap-2 mb-3 pb-2 border-b ${color}`}>
+                            {icon}
+                            <h4 className="text-lg font-bold">{title}</h4>
+                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${bgColor}`}>{tasks.length}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {tasks.map(task => <TaskItem key={task.id} task={task} onCheck={onCheck} onClick={onClick} />)}
+                        </div>
+                    </div>
+                );
+            };
+
+            const formatDateHeader = (dateStr) => {
+                const date = new Date(dateStr + 'T00:00:00');
+                return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto pb-20">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 mb-8">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-bold text-blue-900 mb-1 flex items-center gap-2">
+                                    <Icons.Calendar /> Calendar
+                                </h3>
+                                <p className="text-sm text-blue-700">Tasks with due dates</p>
+                            </div>
+                            <div className="text-center bg-white p-3 rounded-lg shadow-sm">
+                                <div className={`text-2xl font-bold ${grouped.overdue.length > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                    {grouped.overdue.length}
+                                </div>
+                                <div className="text-xs text-gray-500 uppercase">Overdue</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {tasksWithDates.length === 0 ? (
+                        <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
+                            <div className="opacity-20 mb-4 scale-150"><Icons.Calendar /></div>
+                            <p>No tasks with due dates</p>
+                            <p className="text-sm mt-1">Add a due date to a task to see it here</p>
+                        </div>
+                    ) : (
+                        <>
+                            <Section
+                                title="Overdue"
+                                tasks={grouped.overdue}
+                                color="text-red-700"
+                                bgColor="bg-red-100 text-red-700"
+                                icon={<svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                            />
+                            <Section
+                                title="Today"
+                                tasks={grouped.today}
+                                color="text-orange-700"
+                                bgColor="bg-orange-100 text-orange-700"
+                                icon={<svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
+                            />
+                            <Section
+                                title="Tomorrow"
+                                tasks={grouped.tomorrow}
+                                color="text-blue-700"
+                                bgColor="bg-blue-100 text-blue-700"
+                                icon={<svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                            />
+                            <Section
+                                title="This Week"
+                                tasks={grouped.thisWeek}
+                                color="text-indigo-700"
+                                bgColor="bg-indigo-100 text-indigo-700"
+                                icon={<svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                            />
+                            <Section
+                                title="Later"
+                                tasks={grouped.later}
+                                color="text-gray-600"
+                                bgColor="bg-gray-100 text-gray-600"
+                                icon={<svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                            />
+                        </>
+                    )}
+                </div>
+            );
+        };
+
         const BrainDumpModal = ({ isOpen, onClose, onAddTasks, contexts, apiKey }) => {
             const [rawText, setRawText] = useState('');
             const [parsedItems, setParsedItems] = useState(null);
@@ -609,7 +721,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                 if (view === 'projects') return tasks.filter(t => t.status !== 'trash' && t.status !== 'done' && t.project);
                 return tasks.filter(t => { if (view === 'all') return t.status !== 'trash'; if (view === 'done') return t.status === 'done'; return t.status === view; });
             }, [tasks, view]);
-            const counts = useMemo(() => { const c = { inbox: 0, next: 0, waiting: 0, someday: 0, done: 0 }; tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; }); return c; }, [tasks]);
+            const counts = useMemo(() => { const c = { inbox: 0, next: 0, waiting: 0, someday: 0, done: 0, calendar: 0 }; tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; if (t.dueDate && t.status !== 'done' && t.status !== 'trash') c.calendar++; }); return c; }, [tasks]);
             const renderProjectView = () => {
                 const projects = [...new Set(tasks.filter(t => t.project && t.status !== 'done' && t.status !== 'trash').map(t => t.project))];
                 if (projects.length === 0) return <div className="text-center text-gray-400 mt-20">No active projects.</div>;
@@ -648,7 +760,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                                 <SidebarItem active={view === 'next'} label="Next Actions" count={counts.next} icon={Icons.Next} onClick={() => {setView('next'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'waiting'} label="Waiting For" count={counts.waiting} icon={Icons.Waiting} onClick={() => {setView('waiting'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'projects'} label="Projects" count={0} icon={Icons.Project} onClick={() => {setView('projects'); setIsMobileMenuOpen(false);}} />
-                                <SidebarItem active={view === 'calendar'} label="Calendar" count={0} icon={Icons.Calendar} onClick={() => {setView('calendar'); setIsMobileMenuOpen(false);}} />
+                                <SidebarItem active={view === 'calendar'} label="Calendar" count={counts.calendar} icon={Icons.Calendar} onClick={() => {setView('calendar'); setIsMobileMenuOpen(false);}} />
                                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2 mt-6">Review</div>
                                 <SidebarItem active={view === 'weekly_review'} label="Weekly Review" count={0} icon={Icons.Review} onClick={() => {setView('weekly_review'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'someday'} label="Someday/Maybe" count={counts.someday} icon={Icons.Someday} onClick={() => {setView('someday'); setIsMobileMenuOpen(false);}} />
@@ -676,6 +788,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                             {view === 'settings' ? <SettingsView contexts={contexts} setContexts={setContexts} delegates={delegates} setDelegates={setDelegates} apiKey={apiKey} setApiKey={setApiKey} user={user} onLogout={handleLogout} /> :
                              view === 'weekly_review' ? <WeeklyReview tasks={tasks} onCheck={markDone} onClick={setProcessingTask} /> :
                              view === 'projects' ? renderProjectView() :
+                             view === 'calendar' ? <CalendarView tasks={tasks} onCheck={markDone} onClick={setProcessingTask} /> :
                              <div className="space-y-2 pb-20">{filteredTasks.length === 0 ? <div className="text-center text-gray-400 mt-20 flex flex-col items-center"><div className="opacity-20 mb-4 scale-150">{view === 'inbox' ? <Icons.Inbox /> : <Icons.Check />}</div><p>No items in {view}</p></div> : filteredTasks.map(task => <TaskItem key={task.id} task={task} onCheck={markDone} onClick={setProcessingTask} />)}</div>}
                         </div>
                     </main>
