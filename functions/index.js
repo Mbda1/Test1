@@ -1,10 +1,9 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-const geminiApiKey = defineSecret("GEMINI_API_KEY");
+const db = admin.firestore();
 
 // Rate limiting: track calls per user in memory (resets on cold start)
 // For production, use Firestore or Redis for persistent rate limiting
@@ -15,7 +14,6 @@ const RATE_LIMIT_MAX_CALLS = 20; // 20 calls per minute per user
 function checkRateLimit(uid) {
   const now = Date.now();
   const userCalls = rateLimitMap.get(uid) || [];
-  // Remove expired entries
   const recent = userCalls.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
   if (recent.length >= RATE_LIMIT_MAX_CALLS) {
     rateLimitMap.set(uid, recent);
@@ -28,7 +26,6 @@ function checkRateLimit(uid) {
 
 exports.callGemini = onCall(
   {
-    secrets: [geminiApiKey],
     cors: true,
     maxInstances: 10,
   },
@@ -69,11 +66,14 @@ exports.callGemini = onCall(
       );
     }
 
-    const apiKey = geminiApiKey.value();
+    // Read the user's own Gemini API key from their Firestore document
+    const userDoc = await db.collection("users").doc(uid).get();
+    const apiKey = userDoc.exists ? userDoc.data().geminiApiKey : null;
+
     if (!apiKey) {
       throw new HttpsError(
         "failed-precondition",
-        "Gemini API key not configured on server."
+        "No Gemini API key found. Add your key in Settings."
       );
     }
 
@@ -115,7 +115,6 @@ exports.callGemini = onCall(
     try {
       return { result: JSON.parse(text) };
     } catch {
-      // Return raw text if not valid JSON
       return { result: text };
     }
   }
