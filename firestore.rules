@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Validate writes: enforce field types and size limits
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['tasks', 'contexts', 'delegates'])
+        && (!('tasks' in request.resource.data) || request.resource.data.tasks is list)
+        && (!('contexts' in request.resource.data) || request.resource.data.contexts is list)
+        && (!('delegates' in request.resource.data) || request.resource.data.delegates is list)
+        // Cap document size: max 500 tasks, 50 contexts, 50 delegates
+        && (!('tasks' in request.resource.data) || request.resource.data.tasks.size() <= 500)
+        && (!('contexts' in request.resource.data) || request.resource.data.contexts.size() <= 50)
+        && (!('delegates' in request.resource.data) || request.resource.data.delegates.size() <= 50);
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
