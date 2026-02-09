@@ -122,7 +122,11 @@
             BrainDump: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
             Dashboard: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>,
             AlertCircle: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-            TrendingUp: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            TrendingUp: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+            Guide: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            ChevronDown: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>,
+            ChevronUp: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>,
+            Send: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
         };
 
         // --- Firebase Data Hook ---
@@ -649,6 +653,328 @@
             );
         };
 
+        const GTDGuideView = ({ apiKey, setView }) => {
+            const [expandedStep, setExpandedStep] = useState(null);
+            const [chatMessages, setChatMessages] = useState([]);
+            const [chatInput, setChatInput] = useState('');
+            const [isChatLoading, setIsChatLoading] = useState(false);
+
+            const toggleStep = (step) => setExpandedStep(expandedStep === step ? null : step);
+
+            const steps = [
+                {
+                    id: 'capture',
+                    title: 'Capture',
+                    subtitle: 'Collect what has your attention',
+                    icon: Icons.Inbox,
+                    color: 'text-red-600',
+                    bgColor: 'bg-red-50',
+                    borderColor: 'border-red-200',
+                    accentColor: 'bg-red-100',
+                    description: 'The first step in GTD is getting everything out of your head. Every task, idea, commitment, or nagging thought goes into your Inbox. The goal is to capture 100% of what has your attention so your mind is free to focus.',
+                    howTo: [
+                        { label: 'Quick Capture', text: 'Go to Inbox and type a task in the input field. Press Enter to add it instantly.' },
+                        { label: 'Brain Dump', text: 'Click the "Dump" button next to the Inbox input. Paste meeting notes, emails, or a stream of thoughts. AI will parse them into individual tasks.' },
+                    ],
+                    tips: [
+                        'Capture everything — no filtering at this stage',
+                        'Use Brain Dump for batch processing meeting notes or emails',
+                        'The inbox is temporary — items should be clarified, not left here',
+                    ],
+                    appNav: 'inbox'
+                },
+                {
+                    id: 'clarify',
+                    title: 'Clarify',
+                    subtitle: 'Process what each item means',
+                    icon: Icons.Sparkles,
+                    color: 'text-purple-600',
+                    bgColor: 'bg-purple-50',
+                    borderColor: 'border-purple-200',
+                    accentColor: 'bg-purple-100',
+                    description: 'For each item in your Inbox, ask: "Is this actionable?" If yes, decide the next physical action. If no, trash it, file it as reference, or move it to Someday/Maybe. This is where vague stuff becomes concrete.',
+                    howTo: [
+                        { label: 'Process Items', text: 'Click any inbox item to open the Clarify modal. Decide if it\'s actionable or not.' },
+                        { label: 'Smart Clarify', text: 'Click the "Smart Clarify" button to let AI analyze your task, suggest a concrete next action, assign a context, and recommend a status.' },
+                        { label: 'Decision Tree', text: 'Not actionable? → Trash, Someday, or Reference. Actionable? → Do It (if < 2 min), Delegate (Waiting For), or Defer (Next Actions).' },
+                    ],
+                    tips: [
+                        'Process top-to-bottom — don\'t skip around',
+                        'If it takes less than 2 minutes, do it right now',
+                        'Smart Clarify works best with a Gemini API key (Settings)',
+                        'Always define a concrete next physical action, not a vague goal',
+                    ],
+                    appNav: 'inbox'
+                },
+                {
+                    id: 'organize',
+                    title: 'Organize',
+                    subtitle: 'Put things where they belong',
+                    icon: Icons.Project,
+                    color: 'text-blue-600',
+                    bgColor: 'bg-blue-50',
+                    borderColor: 'border-blue-200',
+                    accentColor: 'bg-blue-100',
+                    description: 'Once clarified, each item gets placed in the right list. Next Actions are things you can do now. Waiting For tracks delegated items. Projects group multi-step outcomes. Someday/Maybe holds future possibilities.',
+                    howTo: [
+                        { label: 'Next Actions', text: 'Your main work queue. These are concrete tasks you can act on right now, organized by context (@work, @home, etc.).' },
+                        { label: 'Waiting For', text: 'Tasks you\'ve delegated or are waiting on someone else for. Assign an owner to track who.' },
+                        { label: 'Projects', text: 'Any outcome requiring more than one step. Use the AI Project Breakdown to auto-generate next actions for a project.' },
+                        { label: 'Calendar', text: 'Tasks with specific due dates. Color-coded by urgency (overdue, today, tomorrow, this week).' },
+                        { label: 'Contexts', text: 'Tag tasks with @work, @home, @calls, etc. Filter by context to see what you can do right now based on where you are.' },
+                    ],
+                    tips: [
+                        'Every project should have at least one Next Action',
+                        'Use contexts to batch similar tasks (e.g., all @calls at once)',
+                        'Set due dates only for hard deadlines, not aspirational ones',
+                        'Assign owners to Waiting For items so you know who to follow up with',
+                    ],
+                    appNav: 'next'
+                },
+                {
+                    id: 'reflect',
+                    title: 'Reflect',
+                    subtitle: 'Review and update your system',
+                    icon: Icons.Review,
+                    color: 'text-indigo-600',
+                    bgColor: 'bg-indigo-50',
+                    borderColor: 'border-indigo-200',
+                    accentColor: 'bg-indigo-100',
+                    description: 'Regular reviews keep your system trustworthy. The Weekly Review is the critical habit — it\'s where you empty your inbox, review all projects and next actions, and make sure nothing is falling through the cracks.',
+                    howTo: [
+                        { label: 'Weekly Review', text: 'Go to the Weekly Review page. It shows your Inbox count, Active Projects with their tasks, Waiting For items, and all Next Actions in one place.' },
+                        { label: 'Dashboard', text: 'Your daily overview. Check Focus Today for urgent/overdue items, see project progress bars, and review summary stats.' },
+                    ],
+                    tips: [
+                        'Do a Weekly Review every week — this is the most important GTD habit',
+                        'Start by emptying your Inbox completely',
+                        'Review every project: is the next action still current?',
+                        'Check Waiting For: do you need to follow up with anyone?',
+                        'Scan Someday/Maybe: should anything move to active?',
+                    ],
+                    appNav: 'weekly_review'
+                },
+                {
+                    id: 'engage',
+                    title: 'Engage',
+                    subtitle: 'Do the right work with confidence',
+                    icon: Icons.Next,
+                    color: 'text-green-600',
+                    bgColor: 'bg-green-50',
+                    borderColor: 'border-green-200',
+                    accentColor: 'bg-green-100',
+                    description: 'With a trusted system in place, you can confidently choose what to work on. Use your context, available time, energy level, and priorities to pick the right Next Action. Check the task\'s checkbox when done.',
+                    howTo: [
+                        { label: 'Next Actions', text: 'Your primary work view. Pick tasks based on your current context, energy, and available time.' },
+                        { label: 'Focus Today', text: 'Check the Dashboard for overdue and due-today items that need immediate attention.' },
+                        { label: 'Complete Tasks', text: 'Click the checkbox on any task to mark it done. Completed tasks are tracked in the Completed view.' },
+                    ],
+                    tips: [
+                        'Trust your system — if it\'s not on a list, it doesn\'t exist',
+                        'Use contexts: at @work? Filter for @work tasks only',
+                        'Low energy? Pick a quick, easy Next Action to build momentum',
+                        'When you finish a project task, immediately define the next one',
+                    ],
+                    appNav: 'next'
+                }
+            ];
+
+            const handleChatSend = async (e) => {
+                e.preventDefault();
+                if (!chatInput.trim()) return;
+                const userMsg = chatInput.trim();
+                setChatInput('');
+                setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+                setIsChatLoading(true);
+
+                if (apiKey) {
+                    const systemPrompt = `You are a friendly GTD (Getting Things Done) expert assistant built into a GTD productivity app called "GTD Focus". Answer the user's question about the GTD methodology, productivity workflows, or how to use the app effectively.
+
+The app has these features:
+- Inbox: capture tasks quickly, or use Brain Dump to paste unstructured text and have AI parse it
+- Clarify: click any inbox item to process it. Smart Clarify uses AI to suggest next actions
+- Organize: Next Actions, Waiting For, Projects, Calendar, Someday/Maybe, Contexts (@work, @home, etc.)
+- Reflect: Weekly Review page shows all projects/actions at a glance; Dashboard shows daily focus
+- Engage: Work from Next Actions filtered by context; check off tasks when done
+- AI features require a Gemini API key in Settings
+
+Keep answers concise (2-4 sentences for simple questions, more for complex ones). Be practical and specific. Reference app features when relevant. Return a JSON object: { "answer": "your answer here" }`;
+                    const result = await callGemini(apiKey, userMsg, systemPrompt);
+                    if (result && result.answer) {
+                        setChatMessages(prev => [...prev, { role: 'ai', text: result.answer }]);
+                    } else {
+                        setChatMessages(prev => [...prev, { role: 'ai', text: "I couldn't process that. Please check your API key in Settings and try again." }]);
+                    }
+                } else {
+                    const faq = {
+                        'inbox': 'Your Inbox is where you capture everything that has your attention. Go to the Inbox view and type a task, or use Brain Dump to paste unstructured text. Don\'t organize here — just capture.',
+                        'clarify': 'Click any Inbox item to open the Clarify modal. Ask "Is this actionable?" If yes, decide the next action and move it to Next Actions, Waiting For, or a Project. If not, Trash it, save as Reference, or move to Someday/Maybe.',
+                        'organize': 'After clarifying, tasks go to: Next Actions (do soon), Waiting For (delegated), Projects (multi-step), Calendar (date-specific), or Someday/Maybe (future). Use contexts like @work or @home to filter.',
+                        'review': 'The Weekly Review is essential. Go to Weekly Review to see all active projects, waiting items, and next actions. Do this every week to keep your system trustworthy.',
+                        'project': 'A project is any outcome requiring more than one action step. In the Clarify modal, type a project name and click the sparkle icon to have AI break it down into 3-5 next actions.',
+                        'context': 'Contexts (like @work, @home, @calls) help you filter tasks by where you are or what tools you have. Add custom contexts in Settings.',
+                        'brain dump': 'Brain Dump lets you paste unstructured text (meeting notes, emails, thoughts) and AI parses it into individual tasks. Find it next to the Inbox input field.',
+                        'api': 'Go to Settings and paste your Gemini API key. This enables Smart Clarify (AI task analysis), Brain Dump AI parsing, and Project Breakdown features.',
+                        'delegate': 'When you delegate a task, move it to Waiting For and assign an owner. Add delegate names in Settings so they appear in the dropdown.',
+                    };
+                    let matched = null;
+                    const lowerMsg = userMsg.toLowerCase();
+                    for (const [key, answer] of Object.entries(faq)) {
+                        if (lowerMsg.includes(key)) { matched = answer; break; }
+                    }
+                    setChatMessages(prev => [...prev, {
+                        role: 'ai',
+                        text: matched || 'For detailed AI-powered answers to your GTD questions, add your Gemini API key in Settings. In the meantime, try asking about: inbox, clarify, organize, review, projects, contexts, brain dump, delegate, or API setup.'
+                    }]);
+                }
+                setIsChatLoading(false);
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto pb-20">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-xl mb-8 text-white">
+                        <h3 className="text-2xl font-bold mb-1 flex items-center gap-2">
+                            <Icons.Guide /> GTD Workflow Guide
+                        </h3>
+                        <p className="text-emerald-100">Learn the Getting Things Done methodology and how to use this app effectively</p>
+                    </div>
+
+                    {/* Overview */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                        <h4 className="text-lg font-bold text-gray-800 mb-3">What is GTD?</h4>
+                        <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                            Getting Things Done (GTD) is a productivity methodology by David Allen. The core idea: your mind is for having ideas, not holding them.
+                            By capturing everything in a trusted system and processing it through a clear workflow, you free mental space to focus on actually doing the work.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {steps.map((step, i) => (
+                                <button key={step.id} onClick={() => toggleStep(step.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${expandedStep === step.id ? step.bgColor + ' ' + step.borderColor + ' ' + step.color : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                                    <span className="text-xs text-gray-400 font-bold">{i + 1}</span>
+                                    <step.icon />
+                                    {step.title}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Steps */}
+                    <div className="space-y-3 mb-8">
+                        {steps.map((step, index) => (
+                            <div key={step.id} className={`bg-white rounded-xl border overflow-hidden transition-all ${expandedStep === step.id ? step.borderColor + ' shadow-md' : 'border-gray-200'}`}>
+                                <button onClick={() => toggleStep(step.id)} className="w-full p-5 flex items-center justify-between text-left">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-lg ${step.accentColor} ${step.color} flex items-center justify-center`}>
+                                            <step.icon />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-gray-400 uppercase">Step {index + 1}</span>
+                                            </div>
+                                            <h4 className={`text-lg font-bold ${step.color}`}>{step.title}</h4>
+                                            <p className="text-sm text-gray-500">{step.subtitle}</p>
+                                        </div>
+                                    </div>
+                                    {expandedStep === step.id ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                                </button>
+
+                                {expandedStep === step.id && (
+                                    <div className="px-5 pb-5 border-t border-gray-100">
+                                        <p className="text-gray-600 text-sm leading-relaxed mt-4 mb-5">{step.description}</p>
+
+                                        <div className="mb-5">
+                                            <h5 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">How to do it in the app</h5>
+                                            <div className="space-y-2">
+                                                {step.howTo.map((item, i) => (
+                                                    <div key={i} className={`p-3 rounded-lg ${step.bgColor} border ${step.borderColor}`}>
+                                                        <span className={`font-bold text-sm ${step.color}`}>{item.label}:</span>
+                                                        <span className="text-sm text-gray-700 ml-1">{item.text}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <h5 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Tips</h5>
+                                            <ul className="space-y-1.5">
+                                                {step.tips.map((tip, i) => (
+                                                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                                                        <span className={`mt-1 w-1.5 h-1.5 rounded-full ${step.accentColor} flex-shrink-0`}></span>
+                                                        {tip}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        <button onClick={() => setView(step.appNav)} className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border ${step.borderColor} ${step.color} ${step.bgColor} hover:opacity-80 transition-opacity`}>
+                                            <step.icon /> Go to {step.title}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* AI Q&A Section */}
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="p-5 border-b bg-gradient-to-r from-purple-50 to-indigo-50">
+                            <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <Icons.Sparkles /> Ask the GTD Guide
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                                {apiKey ? 'AI-powered answers to your GTD and workflow questions' : 'Add a Gemini API key in Settings for AI-powered answers, or ask about common topics'}
+                            </p>
+                        </div>
+                        <div className="p-4">
+                            {chatMessages.length > 0 && (
+                                <div className="space-y-3 mb-4 max-h-80 overflow-y-auto">
+                                    {chatMessages.map((msg, i) => (
+                                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[80%] px-4 py-2.5 rounded-xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                                                {msg.text}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {isChatLoading && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-gray-100 px-4 py-2.5 rounded-xl rounded-bl-sm text-sm text-gray-500 flex items-center gap-2">
+                                                <span className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full spinner"></span>
+                                                Thinking...
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {chatMessages.length === 0 && (
+                                <div className="mb-4">
+                                    <p className="text-sm text-gray-400 mb-3">Try asking:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['How do I process my inbox?', 'What makes a good next action?', 'How do I do a weekly review?', 'How do projects work?'].map(q => (
+                                            <button key={q} onClick={() => { setChatInput(q); }} className="text-xs px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-gray-600 hover:bg-gray-100 transition-colors">
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <form onSubmit={handleChatSend} className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    placeholder="Ask a question about GTD..."
+                                    className="flex-1 p-3 border border-gray-200 rounded-lg text-sm focus:border-purple-400 focus:shadow-md outline-none transition-shadow"
+                                />
+                                <button type="submit" disabled={!chatInput.trim() || isChatLoading} className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center">
+                                    <Icons.Send />
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const BrainDumpModal = ({ isOpen, onClose, onAddTasks, contexts, apiKey }) => {
             const [rawText, setRawText] = useState('');
             const [parsedItems, setParsedItems] = useState(null);
@@ -972,7 +1298,10 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                                 <SidebarItem active={view === 'weekly_review'} label="Weekly Review" count={0} icon={Icons.Review} onClick={() => {setView('weekly_review'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'someday'} label="Someday/Maybe" count={counts.someday} icon={Icons.Someday} onClick={() => {setView('someday'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'done'} label="Completed" count={counts.done} icon={Icons.Done} onClick={() => {setView('done'); setIsMobileMenuOpen(false);}} />
-                                <div className="mt-6 border-t pt-4"><SidebarItem active={view === 'settings'} label="Settings" count={0} icon={Icons.Settings} onClick={() => {setView('settings'); setIsMobileMenuOpen(false);}} /></div>
+                                <div className="mt-6 border-t pt-4">
+                                    <SidebarItem active={view === 'guide'} label="GTD Guide" count={0} icon={Icons.Guide} onClick={() => {setView('guide'); setIsMobileMenuOpen(false);}} />
+                                    <SidebarItem active={view === 'settings'} label="Settings" count={0} icon={Icons.Settings} onClick={() => {setView('settings'); setIsMobileMenuOpen(false);}} />
+                                </div>
                             </nav>
                             {view === 'done' && <div className="p-4 border-t"><button onClick={deleteCompleted} className="w-full py-2 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50">Clear Completed</button></div>}
                         </div>
@@ -981,7 +1310,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 lg:px-8 shadow-sm z-10">
                             <div className="flex items-center">
                                 <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden mr-4 text-gray-600"><Icons.Menu /></button>
-                                <h2 className="text-xl font-bold text-gray-800 capitalize">{view === 'weekly_review' ? 'Weekly Review' : (view === 'next' ? 'Next Actions' : view)}</h2>
+                                <h2 className="text-xl font-bold text-gray-800 capitalize">{view === 'weekly_review' ? 'Weekly Review' : view === 'next' ? 'Next Actions' : view === 'guide' ? 'GTD Guide' : view}</h2>
                             </div>
                             <div className="flex items-center gap-2">
                                 {user.photoURL && <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full cursor-pointer" referrerPolicy="no-referrer" onClick={() => setView('settings')} title={user.displayName} />}
@@ -993,6 +1322,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                                 {view === 'inbox' && <button onClick={() => setIsBrainDumpOpen(true)} className="px-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-purple-300 transition-all flex items-center gap-2 text-purple-600 bg-white" title="Brain Dump"><Icons.BrainDump /><span className="hidden sm:inline text-sm font-medium">Dump</span></button>}
                             </div>}
                             {view === 'settings' ? <SettingsView contexts={contexts} setContexts={setContexts} delegates={delegates} setDelegates={setDelegates} apiKey={apiKey} setApiKey={setApiKey} user={user} onLogout={handleLogout} /> :
+                             view === 'guide' ? <GTDGuideView apiKey={apiKey} setView={setView} /> :
                              view === 'dashboard' ? <DashboardView tasks={tasks} onCheck={markDone} onClick={setProcessingTask} setView={setView} /> :
                              view === 'weekly_review' ? <WeeklyReview tasks={tasks} onCheck={markDone} onClick={setProcessingTask} /> :
                              view === 'projects' ? renderProjectView() :
