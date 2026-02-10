@@ -1,0 +1,15 @@
+{
+  "name": "test1-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Starter environment and codebase scaffold",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
