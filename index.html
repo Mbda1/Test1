@@ -48,7 +48,7 @@
                 return snap.exists() ? snap.data() : null;
             },
             saveUserData: async (uid, data) => {
-                await setDoc(doc(db, "users", uid), data, { merge: true });
+                await setDoc(doc(db, "users", uid), data);
             }
         };
 
