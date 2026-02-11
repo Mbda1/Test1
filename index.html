@@ -184,12 +184,11 @@
 
         // --- Firebase Data Hook ---
         function useFirebaseData(user) {
-            const [tasks, setTasksState] = useState([]);
-            const [contexts, setContextsState] = useState(['@work', '@home', '@computer', '@calls', '@errands']);
-            const [delegates, setDelegatesState] = useState([]);
-            const [apiKey, setApiKeyState] = useState(defaultGeminiKey);
+            const [tasks, setTasks] = useState([]);
+            const [contexts, setContexts] = useState(['@work', '@home', '@computer', '@calls', '@errands']);
+            const [delegates, setDelegates] = useState([]);
+            const [apiKey, setApiKey] = useState(defaultGeminiKey);
             const [loaded, setLoaded] = useState(false);
-            const saveTimeout = useRef(null);
 
             // Load data from Firestore when user logs in
             useEffect(() => {
@@ -197,10 +196,10 @@
                 setLoaded(false);
                 window._firebase.loadUserData(user.uid).then(data => {
                     if (data) {
-                        if (data.tasks) setTasksState(data.tasks);
-                        if (data.contexts) setContextsState(data.contexts);
-                        if (data.delegates) setDelegatesState(data.delegates);
-                        if (data.apiKey) setApiKeyState(data.apiKey);
+                        if (data.tasks) setTasks(data.tasks);
+                        if (data.contexts) setContexts(data.contexts);
+                        if (data.delegates) setDelegates(data.delegates);
+                        if (data.apiKey) setApiKey(data.apiKey);
                     }
                     setLoaded(true);
                 }).catch(err => {
@@ -209,48 +208,16 @@
                 });
             }, [user]);
 
-            // Debounced save to Firestore
-            const saveToFirebase = useCallback((data) => {
-                if (!user || !window._firebase) return;
-                if (saveTimeout.current) clearTimeout(saveTimeout.current);
-                saveTimeout.current = setTimeout(() => {
-                    window._firebase.saveUserData(user.uid, data).catch(err => {
+            // Auto-save to Firestore on any state change (debounced)
+            useEffect(() => {
+                if (!user || !window._firebase || !loaded) return;
+                const timeout = setTimeout(() => {
+                    window._firebase.saveUserData(user.uid, { tasks, contexts, delegates, apiKey }).catch(err => {
                         console.error("Save error:", err);
                     });
                 }, 500);
-            }, [user]);
-
-            const setTasks = useCallback((value) => {
-                setTasksState(prev => {
-                    const next = value instanceof Function ? value(prev) : value;
-                    saveToFirebase({ tasks: next, contexts, delegates, apiKey });
-                    return next;
-                });
-            }, [saveToFirebase, contexts, delegates, apiKey]);
-
-            const setContexts = useCallback((value) => {
-                setContextsState(prev => {
-                    const next = value instanceof Function ? value(prev) : value;
-                    saveToFirebase({ tasks, contexts: next, delegates, apiKey });
-                    return next;
-                });
-            }, [saveToFirebase, tasks, delegates, apiKey]);
-
-            const setDelegates = useCallback((value) => {
-                setDelegatesState(prev => {
-                    const next = value instanceof Function ? value(prev) : value;
-                    saveToFirebase({ tasks, contexts, delegates: next, apiKey });
-                    return next;
-                });
-            }, [saveToFirebase, tasks, contexts, apiKey]);
-
-            const setApiKey = useCallback((value) => {
-                setApiKeyState(prev => {
-                    const next = value instanceof Function ? value(prev) : value;
-                    saveToFirebase({ tasks, contexts, delegates, apiKey: next });
-                    return next;
-                });
-            }, [saveToFirebase, tasks, contexts, delegates]);
+                return () => clearTimeout(timeout);
+            }, [user, tasks, contexts, delegates, apiKey, loaded]);
 
             return { tasks, setTasks, contexts, setContexts, delegates, setDelegates, apiKey, setApiKey, loaded };
         }
