@@ -190,6 +190,7 @@
             const [apiKey, setApiKeyState] = useState(defaultGeminiKey);
             const [loaded, setLoaded] = useState(false);
             const saveTimeout = useRef(null);
+            const pendingSaveData = useRef(null);
 
             // Load data from Firestore when user logs in
             useEffect(() => {
@@ -209,16 +210,38 @@
                 });
             }, [user]);
 
+            const flushPendingSave = useCallback(() => {
+                if (!user || !window._firebase || !pendingSaveData.current) return;
+                const dataToSave = pendingSaveData.current;
+                pendingSaveData.current = null;
+                if (saveTimeout.current) {
+                    clearTimeout(saveTimeout.current);
+                    saveTimeout.current = null;
+                }
+                window._firebase.saveUserData(user.uid, dataToSave).catch(err => {
+                    console.error("Save error:", err);
+                });
+            }, [user]);
+
             // Debounced save to Firestore
             const saveToFirebase = useCallback((data) => {
                 if (!user || !window._firebase) return;
+                pendingSaveData.current = data;
                 if (saveTimeout.current) clearTimeout(saveTimeout.current);
-                saveTimeout.current = setTimeout(() => {
-                    window._firebase.saveUserData(user.uid, data).catch(err => {
-                        console.error("Save error:", err);
-                    });
-                }, 500);
-            }, [user]);
+                saveTimeout.current = setTimeout(flushPendingSave, 500);
+            }, [user, flushPendingSave]);
+
+            // Flush pending writes on hard refresh/tab close
+            useEffect(() => {
+                const handlePageHide = () => flushPendingSave();
+                window.addEventListener('pagehide', handlePageHide);
+                window.addEventListener('beforeunload', handlePageHide);
+                return () => {
+                    window.removeEventListener('pagehide', handlePageHide);
+                    window.removeEventListener('beforeunload', handlePageHide);
+                    flushPendingSave();
+                };
+            }, [flushPendingSave]);
 
             const setTasks = useCallback((value) => {
                 setTasksState(prev => {
