@@ -249,9 +249,10 @@
                 case 'SAVE_START':
                     return { ...state, saveStatus: 'saving' };
                 case 'SAVE_SUCCESS':
-                    return { ...state, saveStatus: 'saved' };
+                    // Only mark 'saved' if still 'saving' — don't overwrite 'unsaved' from new changes
+                    return state.saveStatus === 'saving' ? { ...state, saveStatus: 'saved' } : state;
                 case 'SAVE_ERROR':
-                    return { ...state, saveStatus: 'error' };
+                    return state.saveStatus === 'saving' ? { ...state, saveStatus: 'error' } : state;
                 default:
                     return state;
             }
@@ -293,22 +294,29 @@
                 });
             }, [user, firebase]);
 
-            // Debounced save with retry
-            const scheduleSave = useCallback(() => {
-                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = setTimeout(async () => {
-                    const s = stateRef.current;
-                    if (!user || !firebase || !s.loaded) return;
-                    const data = { tasks: s.tasks, contexts: s.contexts, delegates: s.delegates, apiKey: s.apiKey };
+            // Auto-save effect: React guarantees this runs when data changes
+            useEffect(() => {
+                if (!user || !firebase || !state.loaded || state.saveStatus !== 'unsaved') return;
+
+                const data = { tasks: state.tasks, contexts: state.contexts, delegates: state.delegates, apiKey: state.apiKey };
+
+                const timeout = setTimeout(async () => {
+                    saveTimeoutRef.current = null;
                     dispatch({ type: 'SAVE_START' });
                     const success = await saveWithRetry(firebase, user.uid, data);
-                    dispatch({ type: success ? 'SAVE_SUCCESS' : 'SAVE_ERROR' });
+                    // Only update status if still 'saving' (no new changes arrived during save)
+                    if (stateRef.current.saveStatus === 'saving') {
+                        dispatch({ type: success ? 'SAVE_SUCCESS' : 'SAVE_ERROR' });
+                    }
                 }, 500);
-            }, [user, firebase]);
+                saveTimeoutRef.current = timeout;
 
-            // Flush pending save synchronously on page hide / tab close
+                return () => { clearTimeout(timeout); saveTimeoutRef.current = null; };
+            }, [user, firebase, state.loaded, state.saveStatus, state.tasks, state.contexts, state.delegates, state.apiKey]);
+
+            // Flush pending save on page hide / tab close
             const flushSave = useCallback(() => {
-                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                if (saveTimeoutRef.current) { clearTimeout(saveTimeoutRef.current); saveTimeoutRef.current = null; }
                 const s = stateRef.current;
                 if (!user || !firebase || !s.loaded || s.saveStatus === 'saved') return;
                 const data = { tasks: s.tasks, contexts: s.contexts, delegates: s.delegates, apiKey: s.apiKey };
@@ -325,26 +333,11 @@
                 };
             }, [flushSave]);
 
-            // Stable setters — dispatch + schedule save
-            const setTasks = useCallback((value) => {
-                dispatch({ type: 'SET_TASKS', payload: value });
-                scheduleSave();
-            }, [scheduleSave]);
-
-            const setContexts = useCallback((value) => {
-                dispatch({ type: 'SET_CONTEXTS', payload: value });
-                scheduleSave();
-            }, [scheduleSave]);
-
-            const setDelegates = useCallback((value) => {
-                dispatch({ type: 'SET_DELEGATES', payload: value });
-                scheduleSave();
-            }, [scheduleSave]);
-
-            const setApiKey = useCallback((value) => {
-                dispatch({ type: 'SET_API_KEY', payload: value });
-                scheduleSave();
-            }, [scheduleSave]);
+            // Stable setters — dispatch only, save is driven by the effect above
+            const setTasks = useCallback((value) => { dispatch({ type: 'SET_TASKS', payload: value }); }, []);
+            const setContexts = useCallback((value) => { dispatch({ type: 'SET_CONTEXTS', payload: value }); }, []);
+            const setDelegates = useCallback((value) => { dispatch({ type: 'SET_DELEGATES', payload: value }); }, []);
+            const setApiKey = useCallback((value) => { dispatch({ type: 'SET_API_KEY', payload: value }); }, []);
 
             return {
                 tasks: state.tasks, setTasks,
