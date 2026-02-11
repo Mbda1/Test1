@@ -115,6 +115,13 @@
         .spinner { animation: spin 1s linear infinite; }
         @keyframes pulse-record { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .recording-pulse { animation: pulse-record 1.5s ease-in-out infinite; }
+        @keyframes float1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -20px) scale(1.05); } }
+        @keyframes float2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-20px, 30px) scale(1.08); } }
+        .login-float-1 { animation: float1 8s ease-in-out infinite; }
+        .login-float-2 { animation: float2 10s ease-in-out infinite; }
+        .login-glow-btn { box-shadow: 0 0 30px rgba(147, 51, 234, 0.5), 0 0 60px rgba(147, 51, 234, 0.2); }
+        .login-glow-btn:hover { box-shadow: 0 0 40px rgba(147, 51, 234, 0.7), 0 0 80px rgba(147, 51, 234, 0.3); }
+        .login-gradient-text { background: linear-gradient(135deg, #ec4899, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; background-size: 200% 100%; animation: shimmer 4s infinite linear; }
     </style>
 </head>
 <body>
@@ -478,16 +485,35 @@
 
         // --- Login Screen ---
         const LoginScreen = ({ onLogin, loading }) => (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-                    <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto mb-6">GTD</div>
-                    <h1 className="text-2xl font-bold text-gray-800 mb-2">GTD Focus</h1>
-                    <p className="text-gray-500 mb-8">Get things done. Sign in to sync your tasks across devices.</p>
-                    <button onClick={onLogin} disabled={loading} className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all font-medium text-gray-700 disabled:opacity-50">
-                        {loading ? <span className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full spinner"></span> : <Icons.Google />}
+            <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f0b2e 0%, #1a1145 30%, #0d1b3e 60%, #0a0e27 100%)' }}>
+                {/* Floating decorative blurs */}
+                <div className="login-float-1 absolute top-1/4 -left-20 w-72 h-72 rounded-full opacity-30" style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.6) 0%, transparent 70%)' }}></div>
+                <div className="login-float-2 absolute bottom-1/4 -right-16 w-96 h-96 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.5) 0%, transparent 70%)' }}></div>
+                <div className="login-float-2 absolute top-10 right-1/4 w-48 h-48 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.5) 0%, transparent 70%)' }}></div>
+
+                {/* Content */}
+                <div className="relative z-10 text-center px-6 max-w-2xl mx-auto">
+                    <h1 className="text-5xl sm:text-7xl font-extrabold leading-tight mb-6 tracking-tight">
+                        <span className="text-white">Clear Mind.</span><br />
+                        <span className="text-white">Sharp Focus.</span><br />
+                        <span className="login-gradient-text">Brilliant Execution.</span>
+                    </h1>
+                    <p className="text-lg sm:text-xl text-gray-400 mb-12 max-w-lg mx-auto leading-relaxed">
+                        Stop juggling tasks in your head. GTD Focus captures, organizes, and prioritizes everything — so you can focus on what truly matters.
+                    </p>
+                    <button
+                        onClick={onLogin}
+                        disabled={loading}
+                        className="login-glow-btn inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full text-white font-semibold text-lg transition-all duration-300 disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea, #a855f7)' }}
+                    >
+                        {loading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full spinner"></span> : <Icons.Google />}
                         {loading ? 'Signing in...' : 'Sign in with Google'}
                     </button>
                 </div>
+
+                {/* Bottom subtle branding */}
+                <div className="absolute bottom-6 text-gray-600 text-sm font-medium tracking-wider z-10">GTD FOCUS</div>
             </div>
         );
 
