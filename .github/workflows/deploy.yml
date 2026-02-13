@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase
 
 on:
   push:
@@ -11,7 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Deploy Firestore Rules
+        uses: w9jds/firebase-action@v13.22.1
+        with:
+          args: deploy --only firestore:rules
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: gtd-focus-b2063
+
+      - name: Deploy Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: gtd-focus-b2063
