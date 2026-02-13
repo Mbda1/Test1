@@ -19,7 +19,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBXutNndK5WFBmgDJKvcT3m5cOJ02WharE",
@@ -33,6 +33,9 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        enableIndexedDbPersistence(db).catch((err) => {
+            console.warn('Firestore persistence unavailable:', err.code);
+        });
         const provider = new GoogleAuthProvider();
 
         // Expose to global scope for React (loaded via non-module script)
@@ -146,6 +149,47 @@
                 console.error("Gemini Error:", error);
                 alert("AI Error: Check your API Key or Internet Connection.");
                 return null;
+            }
+        }
+
+        // --- Shared Utilities ---
+        function generateId() {
+            return typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : Date.now().toString(36) + Math.random().toString(36).slice(2);
+        }
+
+        function formatTaskDate(dateStr) {
+            if (!dateStr) return null;
+            const date = new Date(dateStr + 'T00:00:00');
+            const today = new Date(); today.setHours(0,0,0,0);
+            const diffDays = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+            let colorClass = 'text-gray-400', text = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            if (diffDays < 0) { colorClass = 'text-red-600 font-bold'; text = `Overdue (${text})`; } else if (diffDays === 0) { colorClass = 'text-orange-600 font-bold'; text = 'Today'; } else if (diffDays === 1) { colorClass = 'text-blue-600'; text = 'Tomorrow'; }
+            return { text, colorClass };
+        }
+
+        const IS_MOBILE = /iPhone|iPad|Android/i.test(navigator.userAgent);
+
+        // --- Error Boundary ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, info) { console.error('React ErrorBoundary caught:', error, info); }
+            render() {
+                if (this.state.hasError) {
+                    return React.createElement('div', { className: 'min-h-screen flex items-center justify-center bg-gray-50' },
+                        React.createElement('div', { className: 'text-center p-8 max-w-md' },
+                            React.createElement('h2', { className: 'text-xl font-bold text-gray-800 mb-2' }, 'Something went wrong'),
+                            React.createElement('p', { className: 'text-gray-500 mb-4' }, 'The app encountered an unexpected error.'),
+                            React.createElement('button', {
+                                className: 'px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700',
+                                onClick: () => { this.setState({ hasError: false, error: null }); }
+                            }, 'Try Again')
+                        )
+                    );
+                }
+                return this.props.children;
             }
         }
 
@@ -356,7 +400,7 @@
             const mediaRecorderRef = useRef(null);
             const audioChunksRef = useRef([]);
             const recognitionRef = useRef(null);
-            const isMobile = useMemo(() => /iPhone|iPad|Android/i.test(navigator.userAgent), []);
+            const isMobile = IS_MOBILE;
 
             const startRecording = useCallback(async () => {
                 setTranscript('');
@@ -437,18 +481,9 @@
         }
 
         // --- Shared Components ---
-        const TaskItem = ({ task, onCheck, onClick }) => {
+        const TaskItem = React.memo(({ task, onCheck, onClick }) => {
             const getContextColor = (ctx) => { switch(ctx) { case '@work': return 'bg-purple-100 text-purple-800'; case '@home': return 'bg-green-100 text-green-800'; case '@calls': return 'bg-yellow-100 text-yellow-800'; default: return 'bg-gray-100 text-gray-600'; } };
-            const formatDate = (dateStr) => {
-                if (!dateStr) return null;
-                const date = new Date(dateStr + 'T00:00:00');
-                const today = new Date(); today.setHours(0,0,0,0);
-                const diffDays = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
-                let colorClass = 'text-gray-400', text = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                if (diffDays < 0) { colorClass = 'text-red-600 font-bold'; text = `Overdue (${text})`; } else if (diffDays === 0) { colorClass = 'text-orange-600 font-bold'; text = 'Today'; } else if (diffDays === 1) { colorClass = 'text-blue-600'; text = 'Tomorrow'; }
-                return { text, colorClass };
-            };
-            const dateInfo = formatDate(task.dueDate);
+            const dateInfo = formatTaskDate(task.dueDate);
             return (
                 <div onClick={() => onClick(task)} className="group bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer flex items-center justify-between">
                     <div className="flex items-center flex-1">
@@ -467,7 +502,7 @@
                     </div>
                 </div>
             );
-        };
+        });
 
         const SidebarItem = ({ active, label, count, icon: Icon, onClick }) => (
             <button onClick={onClick} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
@@ -751,7 +786,7 @@
             const [newContext, setNewContext] = useState('');
             const [newDelegate, setNewDelegate] = useState('');
             const [whisperModel, setWhisperModel] = useState(localStorage.getItem('whisperModel') || 'onnx-community/whisper-base.en');
-            const settingsIsMobile = useMemo(() => /iPhone|iPad|Android/i.test(navigator.userAgent), []);
+            const settingsIsMobile = IS_MOBILE;
 
             const addContext = (e) => { e.preventDefault(); if (newContext && !contexts.includes(newContext)) { setContexts([...contexts, newContext.startsWith('@') ? newContext : '@' + newContext]); setNewContext(''); } };
             const removeContext = (ctx) => setContexts(contexts.filter(c => c !== ctx));
@@ -962,8 +997,8 @@
             weekAgo.setDate(weekAgo.getDate() - 7);
             const completedThisWeek = tasks.filter(t => {
                 if (t.status !== 'done') return false;
-                const created = new Date(t.created);
-                return created >= weekAgo;
+                const doneDate = t.completedAt ? new Date(t.completedAt) : new Date(t.created);
+                return doneDate >= weekAgo;
             });
 
             // Projects with progress
@@ -1008,9 +1043,8 @@
             );
 
             const formatDate = (dateStr) => {
-                if (!dateStr) return '';
-                const date = new Date(dateStr + 'T00:00:00');
-                return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                const info = formatTaskDate(dateStr);
+                return info ? info.text : '';
             };
 
             const getProgressColor = (progress) => {
@@ -1510,13 +1544,13 @@ For each item, provide:
 Return a JSON array of objects. Extract EVERY distinct actionable item or thought — don't merge separate items. If something is clearly not actionable (e.g. just a note or observation), still include it with status "inbox".`;
                     const result = await callGemini(apiKey, rawText, systemPrompt);
                     if (Array.isArray(result)) {
-                        setParsedItems(result.map((item, i) => ({ ...item, id: Date.now() + i, selected: true })));
+                        setParsedItems(result.map((item) => ({ ...item, id: generateId(), selected: true })));
                     }
                 } else {
                     // Fallback: split on newlines
                     const lines = rawText.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
                     setParsedItems(lines.map((line, i) => ({
-                        id: Date.now() + i, text: line, status: 'inbox', context: '', project: '', dueDate: null, owner: null, selected: true
+                        id: generateId(), text: line, status: 'inbox', context: '', project: '', dueDate: null, owner: null, selected: true
                     })));
                 }
                 setIsProcessing(false);
@@ -1655,32 +1689,44 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
         };
 
         const ProcessModal = ({ task, isOpen, onClose, onUpdate, onAddSubtasks, contexts, delegates, apiKey }) => {
+            const [localTask, setLocalTask] = useState(null);
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [aiSuggestion, setAiSuggestion] = useState(null);
             const [isBreakingDown, setIsBreakingDown] = useState(false);
-            useEffect(() => { setAiSuggestion(null); setIsAnalyzing(false); setIsBreakingDown(false); }, [task]);
-            if (!isOpen || !task) return null;
 
-            const moveTask = (status) => { onUpdate({ ...task, status }); onClose(); };
-            const updateTask = (updates) => { onUpdate({ ...task, ...updates }); };
+            // Sync local state from prop when a new task is opened
+            useEffect(() => {
+                if (task) setLocalTask({ ...task });
+                setAiSuggestion(null); setIsAnalyzing(false); setIsBreakingDown(false);
+            }, [task]);
+
+            if (!isOpen || !task || !localTask) return null;
+
+            const handleClose = () => {
+                // Push local edits to parent (single save) on close
+                onUpdate(localTask);
+                onClose();
+            };
+            const moveTask = (status) => { onUpdate({ ...localTask, status }); onClose(); };
+            const updateLocal = (updates) => { setLocalTask(prev => ({ ...prev, ...updates })); };
 
             const handleAIClarify = async () => {
                 if(!apiKey) { alert("Please enter a Gemini API Key in Settings first."); return; }
                 setIsAnalyzing(true);
                 const contextList = contexts.join(', ');
                 const systemPrompt = `GTD expert. Analyze inbox item. 1. Clarify to concrete next action. 2. Context from: [${contextList}]. 3. Status (next, waiting, project, someday, trash, reference). 4. Suggest Project Name. 5. Due Date (YYYY-MM-DD) if mentioned. 6. Waiting owner if mentioned. Return JSON: { "clarifiedText": string, "context": string, "status": string, "project": string, "dueDate": string|null, "owner": string|null }`;
-                const result = await callGemini(apiKey, task.text, systemPrompt);
-                if (result) { updateTask({ text: result.clarifiedText || task.text, context: result.context || task.context, project: result.project || task.project, dueDate: result.dueDate || task.dueDate, owner: result.owner || task.owner }); setAiSuggestion(result.status); }
+                const result = await callGemini(apiKey, localTask.text, systemPrompt);
+                if (result) { updateLocal({ text: result.clarifiedText || localTask.text, context: result.context || localTask.context, project: result.project || localTask.project, dueDate: result.dueDate || localTask.dueDate, owner: result.owner || localTask.owner }); setAiSuggestion(result.status); }
                 setIsAnalyzing(false);
             };
             const handleAIBreakdown = async () => {
                 if(!apiKey) { alert("Please enter a Gemini API Key in Settings first."); return; }
-                if (!task.project && !task.text) return;
+                if (!localTask.project && !localTask.text) return;
                 setIsBreakingDown(true);
-                const projectTitle = task.project || task.text;
+                const projectTitle = localTask.project || localTask.text;
                 const systemPrompt = `GTD expert. Project: "${projectTitle}". Break down into 3-5 next actions. Return JSON array of strings.`;
                 const result = await callGemini(apiKey, projectTitle, systemPrompt);
-                if (Array.isArray(result)) { onAddSubtasks(result, projectTitle); updateTask({ text: projectTitle, status: 'project', project: projectTitle }); alert(`Created ${result.length} actions!`); onClose(); }
+                if (Array.isArray(result)) { onAddSubtasks(result, projectTitle); onUpdate({ ...localTask, text: projectTitle, status: 'project', project: projectTitle }); alert(`Created ${result.length} actions!`); onClose(); }
                 setIsBreakingDown(false);
             };
 
@@ -1691,18 +1737,18 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">Clarify {aiSuggestion && <span className="text-xs bg-purple-100 text-purple-700 px-2 rounded-full">AI: {aiSuggestion}</span>}</h3>
                             <div className="flex items-center gap-2">
                                 <button onClick={handleAIClarify} disabled={isAnalyzing} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-md ai-gradient hover:opacity-90 disabled:opacity-50">{isAnalyzing ? '...' : <><Icons.Sparkles /> Smart Clarify</>}</button>
-                                <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"><Icons.Check /> Done</button>
+                                <button onClick={handleClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"><Icons.Check /> Done</button>
                             </div>
                         </div>
                         <div className="p-6 overflow-y-auto">
-                            <div className="mb-6"><label className="block text-xs text-gray-500 font-bold uppercase mb-1">Task Name</label><input type="text" value={task.text} onChange={(e) => updateTask({ text: e.target.value })} className="w-full text-lg font-medium border-b-2 focus:border-blue-500 outline-none py-1" /></div>
+                            <div className="mb-6"><label className="block text-xs text-gray-500 font-bold uppercase mb-1">Task Name</label><input type="text" value={localTask.text} onChange={(e) => updateLocal({ text: e.target.value })} className="w-full text-lg font-medium border-b-2 focus:border-blue-500 outline-none py-1" /></div>
                             <div className="mb-6"><label className="block text-xs text-gray-500 font-bold uppercase mb-2">Actionable?</label><div className="grid grid-cols-2 gap-3"><button onClick={() => moveTask('trash')} className={`flex items-center justify-center px-4 py-2 border rounded hover:bg-red-50 ${aiSuggestion === 'trash' ? 'ring-2 ring-purple-400 border-purple-400 bg-red-50' : 'border-red-200 text-red-600'}`}><Icons.Trash /> Trash</button><button onClick={() => moveTask('someday')} className={`flex items-center justify-center px-4 py-2 border rounded hover:bg-yellow-50 ${aiSuggestion === 'someday' ? 'ring-2 ring-purple-400 border-purple-400 bg-yellow-50' : 'border-yellow-200 text-yellow-600'}`}><Icons.Someday /> Someday</button><button onClick={() => moveTask('reference')} className={`col-span-2 flex items-center justify-center px-4 py-2 border rounded hover:bg-gray-50 ${aiSuggestion === 'reference' ? 'ring-2 ring-purple-400 border-purple-400 bg-gray-50' : 'border-gray-200 text-gray-600'}`}><Icons.Reference /> Reference</button></div></div>
                             <div className="mb-4"><label className="block text-xs text-gray-500 font-bold uppercase mb-2">Yes (Actionable)</label><div className="space-y-2"><button onClick={() => moveTask('done')} className="w-full flex items-center justify-between px-4 py-3 bg-green-50 text-green-700 rounded hover:bg-green-100 border border-green-200"><div className="flex items-center"><Icons.Check /><span className="ml-2 font-medium">Do It (Done)</span></div></button><div className="grid grid-cols-2 gap-3 pt-2"><button onClick={() => moveTask('waiting')} className={`flex flex-col items-center justify-center p-3 border rounded hover:bg-gray-50 ${aiSuggestion === 'waiting' ? 'ring-2 ring-purple-400' : ''}`}><Icons.Waiting /><span className="mt-1 text-sm">Delegate</span></button><button onClick={() => moveTask('next')} className={`flex flex-col items-center justify-center p-3 border rounded bg-blue-50 ${aiSuggestion === 'next' ? 'ring-2 ring-purple-400 border-purple-400' : 'border-blue-200 text-blue-700'}`}><Icons.Next /><span className="mt-1 text-sm">Defer</span></button></div></div></div>
                             <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t">
-                                <div><label className="block text-xs text-gray-500 mb-1">Context</label><select value={task.context || ''} onChange={(e) => updateTask({ context: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm"><option value="">None</option>{contexts.map(ctx => <option key={ctx} value={ctx}>{ctx}</option>)}</select></div>
-                                <div><label className="block text-xs text-gray-500 mb-1">Due Date</label><input type="date" value={task.dueDate || ''} onChange={(e) => updateTask({ dueDate: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm" /></div>
-                                {(task.status === 'waiting' || task.owner) && <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Assigned To</label><div className="flex gap-2"><select value={task.owner || ''} onChange={(e) => updateTask({ owner: e.target.value })} className="flex-1 p-2 bg-gray-50 rounded border text-sm"><option value="">Select...</option>{delegates.map(d => <option key={d} value={d}>{d}</option>)}</select><input type="text" placeholder="Or type..." value={task.owner || ''} onChange={(e) => updateTask({ owner: e.target.value })} className="flex-1 p-2 bg-gray-50 rounded border text-sm" /></div></div>}
-                                <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Project</label><div className="relative"><input type="text" placeholder="Project Name..." value={task.project || ''} onChange={(e) => updateTask({ project: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm pr-8" />{(task.project || task.text) && <button onClick={handleAIBreakdown} disabled={isBreakingDown} className="absolute right-1 top-1 p-1 text-purple-600 hover:bg-purple-100 rounded">{isBreakingDown ? '...' : <Icons.Sparkles />}</button>}</div></div>
+                                <div><label className="block text-xs text-gray-500 mb-1">Context</label><select value={localTask.context || ''} onChange={(e) => updateLocal({ context: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm"><option value="">None</option>{contexts.map(ctx => <option key={ctx} value={ctx}>{ctx}</option>)}</select></div>
+                                <div><label className="block text-xs text-gray-500 mb-1">Due Date</label><input type="date" value={localTask.dueDate || ''} onChange={(e) => updateLocal({ dueDate: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm" /></div>
+                                {(localTask.status === 'waiting' || localTask.owner) && <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Assigned To</label><div className="flex gap-2"><select value={localTask.owner || ''} onChange={(e) => updateLocal({ owner: e.target.value })} className="flex-1 p-2 bg-gray-50 rounded border text-sm"><option value="">Select...</option>{delegates.map(d => <option key={d} value={d}>{d}</option>)}</select><input type="text" placeholder="Or type..." value={localTask.owner || ''} onChange={(e) => updateLocal({ owner: e.target.value })} className="flex-1 p-2 bg-gray-50 rounded border text-sm" /></div></div>}
+                                <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Project</label><div className="relative"><input type="text" placeholder="Project Name..." value={localTask.project || ''} onChange={(e) => updateLocal({ project: e.target.value })} className="w-full p-2 bg-gray-50 rounded border text-sm pr-8" />{(localTask.project || localTask.text) && <button onClick={handleAIBreakdown} disabled={isBreakingDown} className="absolute right-1 top-1 p-1 text-purple-600 hover:bg-purple-100 rounded">{isBreakingDown ? '...' : <Icons.Sparkles />}</button>}</div></div>
                             </div>
                         </div>
                     </div>
@@ -1754,25 +1800,24 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
 
             const handleAddTask = (e) => {
                 e.preventDefault(); if (!newTask.trim()) return;
-                const task = { id: Date.now(), text: newTask, status: 'inbox', created: new Date().toISOString() };
+                const task = { id: generateId(), text: newTask, status: 'inbox', created: new Date().toISOString() };
                 setTasks(prev => [task, ...prev]); setNewTask('');
             };
-            const updateTask = (updatedTask) => {
+            const updateTask = useCallback((updatedTask) => {
                 setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-                if (processingTask && processingTask.id === updatedTask.id) setProcessingTask(updatedTask);
-            };
+            }, [setTasks]);
             const addMultipleTasks = (newTitles, projectName) => {
-                const newTasks = newTitles.map((title, index) => ({ id: Date.now() + index, text: title, status: 'next', created: new Date().toISOString(), project: projectName, notes: 'Generated by AI' }));
+                const newTasks = newTitles.map((title) => ({ id: generateId(), text: title, status: 'next', created: new Date().toISOString(), project: projectName, notes: 'Generated by AI' }));
                 setTasks(prev => [...newTasks, ...prev]);
             };
             const addBrainDumpTasks = (newTasks) => { setTasks(prev => [...newTasks, ...prev]); };
-            const markDone = (id) => { setTasks(prev => prev.map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'inbox' : 'done' } : t)); };
+            const markDone = useCallback((id) => { setTasks(prev => prev.map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'inbox' : 'done', completedAt: t.status === 'done' ? undefined : new Date().toISOString() } : t)); }, [setTasks]);
             const deleteCompleted = () => { if(confirm("Clear completed?")) setTasks(prev => prev.filter(t => t.status !== 'done' && t.status !== 'trash')); };
             const filteredTasks = useMemo(() => {
                 if (view === 'projects') return tasks.filter(t => t.status !== 'trash' && t.status !== 'done' && t.project);
                 return tasks.filter(t => { if (view === 'all') return t.status !== 'trash'; if (view === 'done') return t.status === 'done'; return t.status === view; });
             }, [tasks, view]);
-            const counts = useMemo(() => { const c = { inbox: 0, next: 0, waiting: 0, someday: 0, done: 0, calendar: 0 }; tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; if (t.dueDate && t.status !== 'done' && t.status !== 'trash') c.calendar++; }); return c; }, [tasks]);
+            const counts = useMemo(() => { const c = { inbox: 0, next: 0, waiting: 0, someday: 0, reference: 0, done: 0, calendar: 0 }; tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; if (t.dueDate && t.status !== 'done' && t.status !== 'trash') c.calendar++; }); return c; }, [tasks]);
             const renderProjectView = () => {
                 const projects = [...new Set(tasks.filter(t => t.project && t.status !== 'done' && t.status !== 'trash').map(t => t.project))];
                 if (projects.length === 0) return <div className="text-center text-gray-400 mt-20">No active projects.</div>;
@@ -1816,6 +1861,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
                                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2 mt-6">Review</div>
                                 <SidebarItem active={view === 'weekly_review'} label="Weekly Review" count={0} icon={Icons.Review} onClick={() => {setView('weekly_review'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'someday'} label="Someday/Maybe" count={counts.someday} icon={Icons.Someday} onClick={() => {setView('someday'); setIsMobileMenuOpen(false);}} />
+                                <SidebarItem active={view === 'reference'} label="Reference" count={counts.reference} icon={Icons.Reference} onClick={() => {setView('reference'); setIsMobileMenuOpen(false);}} />
                                 <SidebarItem active={view === 'done'} label="Completed" count={counts.done} icon={Icons.Done} onClick={() => {setView('done'); setIsMobileMenuOpen(false);}} />
                                 <div className="mt-6 border-t pt-4">
                                     <SidebarItem active={view === 'guide'} label="GTD Guide" count={0} icon={Icons.Guide} onClick={() => {setView('guide'); setIsMobileMenuOpen(false);}} />
@@ -1861,7 +1907,7 @@ Return a JSON array of objects. Extract EVERY distinct actionable item or though
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<FirebaseProvider><App /></FirebaseProvider>);
+        root.render(<ErrorBoundary><FirebaseProvider><App /></FirebaseProvider></ErrorBoundary>);
     </script>
 </body>
 </html>

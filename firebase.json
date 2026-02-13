@@ -1,10 +1,15 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
       ".firebaserc",
       ".git",
+      ".github",
       ".gitignore",
       "CLAUDE.md",
       "Claude.md",
@@ -14,7 +19,11 @@
       {
         "source": "**/*.html",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          { "key": "Cache-Control", "value": "no-cache" },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://huggingface.co; img-src 'self' https://*.googleusercontent.com data: blob:; frame-src https://*.firebaseapp.com"
+          }
         ]
       }
     ]
