@@ -19,7 +19,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+        import { initializeFirestore, persistentLocalCache, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBXutNndK5WFBmgDJKvcT3m5cOJ02WharE",
@@ -32,10 +32,7 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
-        enableIndexedDbPersistence(db).catch((err) => {
-            console.warn('Firestore persistence unavailable:', err.code);
-        });
+        const db = initializeFirestore(app, { localCache: persistentLocalCache() });
         const provider = new GoogleAuthProvider();
 
         // Expose to global scope for React (loaded via non-module script)
